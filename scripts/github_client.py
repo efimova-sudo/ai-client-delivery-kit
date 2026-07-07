@@ -82,7 +82,7 @@ def dry_run_payload(config: GitHubConfig) -> dict[str, Any]:
     return {
         "repository": {
             "full_name": f"{config.owner}/{config.repo}",
-            "description": "Dry-run repository metadata for portfolio demonstration.",
+            "description": "Dry-run repository metadata for delivery workflow demonstration.",
             "open_issues_count": 3,
             "default_branch": "main",
         },

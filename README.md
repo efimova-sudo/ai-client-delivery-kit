@@ -28,6 +28,7 @@ The goal is to keep the workflow lightweight while making the important parts in
 - ChatGPT/GitHub connector and GitHub MCP setup notes.
 - Python scripts for prompt validation, repository bootstrap, and GitHub API digest generation.
 - GitHub Actions for validation and scheduled weekly digest automation.
+- Curated sample outputs in `examples/`.
 - Client-safe setup, handoff, security, and restricted-environment documentation.
 - Release, tag, and changelog guidance.
 
@@ -66,6 +67,13 @@ Generate a dry-run GitHub activity digest without network access:
 python scripts/github_client.py --config client-config.example.yaml --dry-run
 ```
 
+## Sample Outputs
+
+Curated examples show the shape of deliverables without relying on live customer data:
+
+- `examples/weekly-digest.sample.md`
+- `examples/executive-brief.sample.md`
+
 ## Automation
 
 The repository includes two GitHub Actions workflows:
@@ -95,6 +103,7 @@ prompts/            Versioned prompt library with YAML metadata
 platform-config/    Setup guides for Claude, ChatGPT GitHub connector, and GitHub MCP
 scripts/            Python automation and validation scripts
 docs/               Setup, handoff, security, data-flow, and restricted-environment docs
+examples/           Curated sample deliverables based on fictional data
 tests/              Unit tests that run without live network access
 .github/workflows/  Validation and scheduled digest workflows
 ```

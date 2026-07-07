@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning for repository releases. Individual prompts use their own prompt-level versions in YAML frontmatter.
 
+## [Unreleased]
+
+### Added
+
+- Curated sample outputs for weekly digest and executive brief deliverables.
+
 ## [0.1.0] - 2026-07-07
 
 ### Added
