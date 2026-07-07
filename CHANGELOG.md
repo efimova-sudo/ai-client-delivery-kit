@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 This project follows semantic versioning for repository releases. Individual prompts use their own prompt-level versions in YAML frontmatter.
 
-## [Unreleased]
+## [0.1.1] - 2026-07-07
 
 ### Added
 
