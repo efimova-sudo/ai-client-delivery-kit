@@ -1,0 +1,55 @@
+client:
+  name: Example B2B SaaS Client
+  industry: B2B SaaS
+  segment: Revenue operations platform
+  region: North America
+
+engagement:
+  objective: Support account research, executive brief generation, and delivery quality review.
+  audience:
+    - customer_success
+    - sales_engineering
+    - executive_sponsors
+  deliverables:
+    - account_research
+    - executive_brief
+    - quality_review
+    - weekly_github_digest
+
+prompt_library:
+  root: prompts
+  required_statuses:
+    - draft
+    - stable
+    - deprecated
+  default_review_mode: strict
+
+github:
+  owner: example-org
+  repo: example-repo
+  include:
+    issues: true
+    pull_requests: true
+    releases: true
+  digest_days: 7
+
+automation:
+  dry_run: true
+  output_dir: outputs
+  weekly_digest_filename: weekly-digest.md
+
+security:
+  sample_data_only: true
+  pii_policy: redact
+  allow_external_search: false
+  secrets_source: environment
+  required_environment_variables:
+    - GITHUB_TOKEN
+
+handoff:
+  owner_role: AI Solutions Engineer
+  backup_role: AI Automation Specialist
+  acceptance_criteria:
+    - Prompt library validates successfully.
+    - GitHub digest runs in dry-run mode without secrets.
+    - Setup and security docs are reviewed before client delivery.
