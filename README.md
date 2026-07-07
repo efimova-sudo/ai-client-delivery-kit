@@ -133,7 +133,7 @@ pytest
 
 ## Release Status
 
-Current planned version: `0.1.0`.
+Latest tagged version: `v0.1.1`.
 
 See `CHANGELOG.md` for release notes and upgrade history.
 See `docs/release.md` for the release checklist and tag convention.
