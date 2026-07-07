@@ -1,7 +1,5 @@
 # Claude Code Project Instructions
 
-This repository is a sample AI client delivery kit. Treat all client data as sample data unless the user explicitly provides approved real project context.
-
 ## Operating Principles
 
 - Read `README.md`, `client-config.example.yaml`, and relevant files under `docs/` before making broad changes.
