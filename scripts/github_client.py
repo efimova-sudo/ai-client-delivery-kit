@@ -11,7 +11,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +19,9 @@ import yaml
 
 
 API_ROOT = "https://api.github.com"
+ISSUE_DATE_FIELDS = ("updated_at", "closed_at", "created_at")
+PULL_REQUEST_DATE_FIELDS = ("updated_at", "closed_at", "merged_at", "created_at")
+RELEASE_DATE_FIELDS = ("published_at", "created_at")
 
 
 @dataclass(frozen=True)
@@ -190,12 +193,73 @@ def item_line(item: dict[str, Any], label: str = "#") -> str:
     return f"- {prefix}: {title}{suffix}"
 
 
+def parse_github_date(value: Any) -> date | None:
+    if not isinstance(value, str) or not value:
+        return None
+
+    normalized = value.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized).date()
+    except ValueError:
+        try:
+            return date.fromisoformat(value[:10])
+        except ValueError:
+            return None
+
+
+def item_activity_date(item: dict[str, Any], fields: tuple[str, ...]) -> date | None:
+    for field in fields:
+        parsed = parse_github_date(item.get(field))
+        if parsed:
+            return parsed
+    return None
+
+
+def filter_items_by_window(
+    items: list[dict[str, Any]],
+    generated_on: date,
+    digest_days: int,
+    date_fields: tuple[str, ...],
+) -> list[dict[str, Any]]:
+    if digest_days <= 0:
+        return list(items)
+
+    window_start = generated_on - timedelta(days=digest_days)
+    filtered = []
+    for item in items:
+        activity_date = item_activity_date(item, date_fields)
+        if activity_date is None or window_start <= activity_date <= generated_on:
+            filtered.append(item)
+    return filtered
+
+
+def item_lines(items: list[dict[str, Any]], label: str = "#") -> list[str]:
+    if not items:
+        return ["- No matching items found in the digest window."]
+    return [item_line(item, label=label) for item in items]
+
+
 def generate_digest(payload: dict[str, Any], config: GitHubConfig, generated_on: date | None = None) -> str:
     generated_on = generated_on or date.today()
     repository = payload["repository"]
-    issues = payload.get("issues", [])
-    pull_requests = payload.get("pull_requests", [])
-    releases = payload.get("releases", [])
+    issues = filter_items_by_window(
+        payload.get("issues", []),
+        generated_on,
+        config.digest_days,
+        ISSUE_DATE_FIELDS,
+    )
+    pull_requests = filter_items_by_window(
+        payload.get("pull_requests", []),
+        generated_on,
+        config.digest_days,
+        PULL_REQUEST_DATE_FIELDS,
+    )
+    releases = filter_items_by_window(
+        payload.get("releases", []),
+        generated_on,
+        config.digest_days,
+        RELEASE_DATE_FIELDS,
+    )
 
     lines = [
         f"# Weekly GitHub Digest: {repository.get('full_name', f'{config.owner}/{config.repo}')}",
@@ -211,15 +275,15 @@ def generate_digest(payload: dict[str, Any], config: GitHubConfig, generated_on:
         "",
         "## Issues",
         "",
-        *(item_line(item) for item in issues),
+        *item_lines(issues),
         "",
         "## Pull Requests",
         "",
-        *(item_line(item) for item in pull_requests),
+        *item_lines(pull_requests),
         "",
         "## Releases",
         "",
-        *(item_line(item, label='') for item in releases),
+        *item_lines(releases, label=""),
         "",
         "## Delivery Notes",
         "",
