@@ -1,5 +1,7 @@
 # AI Client Delivery Kit
 
+[![Validate](https://github.com/efimova-sudo/ai-client-delivery-kit/actions/workflows/validate.yml/badge.svg)](https://github.com/efimova-sudo/ai-client-delivery-kit/actions/workflows/validate.yml)
+
 A compact toolkit for packaging AI-assisted delivery workflows for an example B2B SaaS client.
 
 This repository shows how client-facing AI work can be made repeatable, reviewable, and safe to adapt across accounts. It combines prompt operations, client configuration, platform setup, GitHub automation, validation, and handoff documentation in a reusable delivery system.
