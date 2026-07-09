@@ -42,16 +42,41 @@ def load_config(path: Path) -> dict[str, Any]:
     return config
 
 
+def config_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    raise ValueError(f"expected a boolean value, got {value!r}")
+
+
 def github_config_from_file(path: Path) -> GitHubConfig:
     config = load_config(path)
     github = config.get("github", {})
+    if github is None:
+        github = {}
+    if not isinstance(github, dict):
+        raise ValueError("github config must parse to a mapping")
+
+    include = github.get("include", {})
+    if include is None:
+        include = {}
+    if not isinstance(include, dict):
+        raise ValueError("github.include config must parse to a mapping")
+
     return GitHubConfig(
         owner=str(github.get("owner", "example-org")),
         repo=str(github.get("repo", "example-repo")),
         digest_days=int(github.get("digest_days", 7)),
-        include_issues=bool(github.get("include", {}).get("issues", True)),
-        include_pull_requests=bool(github.get("include", {}).get("pull_requests", True)),
-        include_releases=bool(github.get("include", {}).get("releases", True)),
+        include_issues=config_bool(include.get("issues"), True),
+        include_pull_requests=config_bool(include.get("pull_requests"), True),
+        include_releases=config_bool(include.get("releases"), True),
     )
 
 

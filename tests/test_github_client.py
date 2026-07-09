@@ -15,6 +15,7 @@ from scripts.github_client import (
     GitHubRateLimitError,
     dry_run_payload,
     generate_digest,
+    github_config_from_file,
 )
 
 
@@ -38,6 +39,28 @@ def test_generate_digest_includes_core_sections() -> None:
     assert "## Pull Requests" in digest
     assert "## Releases" in digest
     assert "Keep secrets in environment variables" in digest
+
+
+def test_config_parses_string_include_flags(tmp_path) -> None:
+    config_path = tmp_path / "client-config.yaml"
+    config_path.write_text(
+        """
+github:
+  owner: example-org
+  repo: example-repo
+  include:
+    issues: "false"
+    pull_requests: "no"
+    releases: "true"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = github_config_from_file(config_path)
+
+    assert config.include_issues is False
+    assert config.include_pull_requests is False
+    assert config.include_releases is True
 
 
 def test_live_client_builds_authenticated_issue_request(monkeypatch: pytest.MonkeyPatch) -> None:
