@@ -6,10 +6,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +26,9 @@ class GitHubConfig:
     owner: str
     repo: str
     digest_days: int = 7
+    include_issues: bool = True
+    include_pull_requests: bool = True
+    include_releases: bool = True
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -41,7 +46,18 @@ def github_config_from_file(path: Path) -> GitHubConfig:
         owner=str(github.get("owner", "example-org")),
         repo=str(github.get("repo", "example-repo")),
         digest_days=int(github.get("digest_days", 7)),
+        include_issues=bool(github.get("include", {}).get("issues", True)),
+        include_pull_requests=bool(github.get("include", {}).get("pull_requests", True)),
+        include_releases=bool(github.get("include", {}).get("releases", True)),
     )
+
+
+class GitHubAPIError(RuntimeError):
+    """Raised when the GitHub API cannot return a usable response."""
+
+
+class GitHubRateLimitError(GitHubAPIError):
+    """Raised when GitHub reports a primary or secondary API rate limit."""
 
 
 class GitHubClient:
@@ -49,8 +65,12 @@ class GitHubClient:
         self.token = token
         self.api_root = api_root.rstrip("/")
 
-    def get_json(self, path: str) -> Any:
-        request = urllib.request.Request(f"{self.api_root}{path}")
+    def get_json(self, path: str, params: dict[str, str] | None = None) -> Any:
+        url = f"{self.api_root}{path}"
+        if params:
+            url = f"{url}?{urllib.parse.urlencode(params)}"
+
+        request = urllib.request.Request(url)
         request.add_header("Accept", "application/vnd.github+json")
         request.add_header("X-GitHub-Api-Version", "2022-11-28")
         if self.token:
@@ -60,22 +80,75 @@ class GitHubClient:
             with urllib.request.urlopen(request, timeout=20) as response:
                 return json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
-            raise RuntimeError(f"GitHub API request failed: {exc.code} {exc.reason}") from exc
+            message = self._error_message(exc)
+            if self._is_rate_limit(exc, message):
+                raise GitHubRateLimitError(self._rate_limit_message(exc)) from exc
+            if exc.code in {500, 502, 503, 504}:
+                raise GitHubAPIError(
+                    f"Temporary GitHub API failure: {exc.code} {exc.reason}. Retry later."
+                ) from exc
+            detail = f": {message}" if message else ""
+            raise GitHubAPIError(f"GitHub API request failed: {exc.code} {exc.reason}{detail}") from exc
         except urllib.error.URLError as exc:
-            raise RuntimeError(f"GitHub API request failed: {exc.reason}") from exc
+            raise GitHubAPIError(f"GitHub API request failed: {exc.reason}") from exc
+
+    @staticmethod
+    def _error_message(exc: urllib.error.HTTPError) -> str:
+        try:
+            body = exc.read().decode("utf-8")
+        except (OSError, UnicodeDecodeError):
+            return ""
+
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            return body.strip()
+
+        message = data.get("message") if isinstance(data, dict) else None
+        return str(message) if message else ""
+
+    @staticmethod
+    def _is_rate_limit(exc: urllib.error.HTTPError, message: str) -> bool:
+        remaining = exc.headers.get("X-RateLimit-Remaining")
+        normalized_message = message.lower()
+        return (
+            exc.code == 429
+            or remaining == "0"
+            or "rate limit" in normalized_message
+            or "too many requests" in normalized_message
+        )
+
+    @staticmethod
+    def _rate_limit_message(exc: urllib.error.HTTPError) -> str:
+        retry_after = exc.headers.get("Retry-After")
+        if retry_after:
+            return f"GitHub API rate limit exceeded; retry after {retry_after} seconds."
+
+        reset = exc.headers.get("X-RateLimit-Reset")
+        if reset and reset.isdigit():
+            reset_at = datetime.fromtimestamp(int(reset), tz=timezone.utc).isoformat()
+            return f"GitHub API rate limit exceeded; retry after {reset_at}."
+
+        return "GitHub API rate limit exceeded; retry later."
 
     def repository(self, config: GitHubConfig) -> dict[str, Any]:
         return self.get_json(f"/repos/{config.owner}/{config.repo}")
 
     def issues(self, config: GitHubConfig) -> list[dict[str, Any]]:
-        data = self.get_json(f"/repos/{config.owner}/{config.repo}/issues?state=all&per_page=10")
+        data = self.get_json(
+            f"/repos/{config.owner}/{config.repo}/issues",
+            {"state": "all", "per_page": "30", "sort": "updated", "direction": "desc"},
+        )
         return [item for item in data if "pull_request" not in item]
 
     def pull_requests(self, config: GitHubConfig) -> list[dict[str, Any]]:
-        return self.get_json(f"/repos/{config.owner}/{config.repo}/pulls?state=all&per_page=10")
+        return self.get_json(
+            f"/repos/{config.owner}/{config.repo}/pulls",
+            {"state": "all", "per_page": "30", "sort": "updated", "direction": "desc"},
+        )
 
     def releases(self, config: GitHubConfig) -> list[dict[str, Any]]:
-        return self.get_json(f"/repos/{config.owner}/{config.repo}/releases?per_page=5")
+        return self.get_json(f"/repos/{config.owner}/{config.repo}/releases", {"per_page": "10"})
 
 
 def dry_run_payload(config: GitHubConfig) -> dict[str, Any]:
@@ -102,9 +175,9 @@ def dry_run_payload(config: GitHubConfig) -> dict[str, Any]:
 def live_payload(client: GitHubClient, config: GitHubConfig) -> dict[str, Any]:
     return {
         "repository": client.repository(config),
-        "issues": client.issues(config),
-        "pull_requests": client.pull_requests(config),
-        "releases": client.releases(config),
+        "issues": client.issues(config) if config.include_issues else [],
+        "pull_requests": client.pull_requests(config) if config.include_pull_requests else [],
+        "releases": client.releases(config) if config.include_releases else [],
     }
 
 
@@ -173,6 +246,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use sample data and avoid network access.",
     )
     parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Use live GitHub API data. Requires GITHUB_TOKEN.",
+    )
+    parser.add_argument(
+        "--api-root",
+        default=API_ROOT,
+        help="GitHub API root URL. Override for GitHub Enterprise or tests.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         help="Optional output Markdown path.",
@@ -181,16 +264,46 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
-    args = build_parser().parse_args()
+    parser = build_parser()
+    args = parser.parse_args()
+    if args.dry_run and args.live:
+        parser.error("--dry-run and --live cannot be used together")
+
     config = github_config_from_file(args.config)
     if args.owner:
-        config = GitHubConfig(args.owner, config.repo, config.digest_days)
+        config = GitHubConfig(
+            args.owner,
+            config.repo,
+            config.digest_days,
+            config.include_issues,
+            config.include_pull_requests,
+            config.include_releases,
+        )
     if args.repo:
-        config = GitHubConfig(config.owner, args.repo, config.digest_days)
+        config = GitHubConfig(
+            config.owner,
+            args.repo,
+            config.digest_days,
+            config.include_issues,
+            config.include_pull_requests,
+            config.include_releases,
+        )
 
     token = os.environ.get("GITHUB_TOKEN")
-    use_dry_run = args.dry_run or not token
-    payload = dry_run_payload(config) if use_dry_run else live_payload(GitHubClient(token), config)
+    if args.live and not token:
+        print("Error: --live requires GITHUB_TOKEN in the environment.", file=sys.stderr)
+        return 2
+
+    try:
+        payload = (
+            live_payload(GitHubClient(token, api_root=args.api_root), config)
+            if args.live
+            else dry_run_payload(config)
+        )
+    except GitHubAPIError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
     digest = generate_digest(payload, config)
 
     if args.output:
