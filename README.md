@@ -69,6 +69,13 @@ Generate a dry-run GitHub activity digest without network access:
 python scripts/github_client.py --config client-config.example.yaml --dry-run
 ```
 
+Generate a live GitHub digest only after configuring a local client config and exporting a read-only token:
+
+```bash
+export GITHUB_TOKEN=...
+python scripts/github_client.py --config client-config.yaml --live
+```
+
 ## Sample Outputs
 
 Curated examples show the shape of deliverables without relying on live customer data:
@@ -83,7 +90,7 @@ The repository includes two GitHub Actions workflows:
 - `Validate` runs on push, pull request, or manual dispatch. It installs the project, validates the prompt library, and runs tests in a clean GitHub-hosted environment.
 - `Weekly Digest` runs on a weekly schedule or manual dispatch. It generates a dry-run GitHub activity digest and uploads the result as a workflow artifact.
 
-Both workflows are designed to be inspectable before live client use. The weekly digest workflow uses read-only GitHub permissions and reads `GITHUB_TOKEN` from the GitHub Actions environment.
+Both workflows are designed to be inspectable before live client use. The weekly digest workflow intentionally passes `--dry-run`; live digest generation is an explicit local or reviewed workflow choice through `--live`.
 
 ## Safety And Review
 
@@ -130,6 +137,7 @@ Before live use:
 python scripts/validate_prompt_library.py
 python scripts/bootstrap_repository.py --config client-config.example.yaml --dry-run
 python scripts/github_client.py --config client-config.example.yaml --dry-run
+python scripts/github_client.py --config client-config.yaml --live
 pytest
 ```
 

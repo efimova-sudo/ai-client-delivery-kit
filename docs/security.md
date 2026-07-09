@@ -19,7 +19,7 @@ Never commit:
 - webhook secrets
 - client-specific environment files
 
-Use environment variables or an approved secret manager. The GitHub digest script reads `GITHUB_TOKEN` from the environment.
+Use environment variables or an approved secret manager. The GitHub digest script reads `GITHUB_TOKEN` from the environment only when `--live` is explicitly passed.
 
 ## GitHub Token Scope Guidance
 
@@ -31,6 +31,14 @@ For read-only digest generation, prefer the minimum scopes needed for the target
 - releases read access.
 
 Avoid write scopes unless a workflow explicitly needs them and has been reviewed.
+
+Live digest generation is opt-in:
+
+```bash
+python scripts/github_client.py --config client-config.yaml --live
+```
+
+Without `--live`, the digest command uses dry-run sample data even if a token exists in the environment.
 
 ## Prompt and Output Safety
 
@@ -48,6 +56,7 @@ Generated outputs should be reviewed before external sharing.
 
 - No secrets in committed files.
 - No real customer data in samples.
-- Dry-run works without live credentials.
+- Dry-run works without live credentials and remains the default.
+- Live GitHub runs require `--live` and a reviewed token source.
 - GitHub Actions use least-privilege permissions.
 - Handoff docs explain local config and credential handling.

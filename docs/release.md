@@ -10,11 +10,26 @@ Before creating a release:
 
 1. Confirm prompt validation passes.
 2. Confirm tests pass.
-3. Review `docs/security.md`.
-4. Update `CHANGELOG.md`.
-5. Confirm sample data only.
-6. Confirm no secrets or local config files are staged.
-7. Create a git tag using the repository version.
+3. Confirm the pull request has passed required CI.
+4. Review `docs/security.md`.
+5. Update `CHANGELOG.md`.
+6. Confirm sample data only.
+7. Confirm no secrets or local config files are staged.
+8. Merge through a pull request.
+9. Create a git tag using the repository version from `main`.
+
+## Branch Protection
+
+Protect `main` before merging live-integration work:
+
+1. Open repository settings in GitHub.
+2. Add a branch protection rule for `main`.
+3. Require a pull request before merging.
+4. Require status checks to pass before merging.
+5. Select the `Validate` workflow check after it has run at least once.
+6. Block force pushes and branch deletion.
+
+If the GitHub UI exposes rulesets instead of classic branch protection, create an equivalent ruleset for `main` with required pull requests and required `Validate` status checks.
 
 ## Commands
 

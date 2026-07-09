@@ -1,6 +1,6 @@
 # Setup
 
-This guide prepares the AI Client Delivery Kit for local validation and dry-run automation.
+This guide prepares the AI Client Delivery Kit for local validation, dry-run automation, and reviewed live GitHub digest generation.
 
 ## Requirements
 
@@ -58,4 +58,18 @@ To write the digest to a file:
 python scripts/github_client.py --config client-config.example.yaml --dry-run --output outputs/weekly-digest.md
 ```
 
-For live GitHub API calls, set `GITHUB_TOKEN` in the environment and omit `--dry-run`.
+The command also defaults to dry-run output when no live flag is provided:
+
+```bash
+python scripts/github_client.py --config client-config.example.yaml
+```
+
+For live GitHub API calls, use an ignored local config and explicitly pass `--live`:
+
+```bash
+cp client-config.example.yaml client-config.yaml
+export GITHUB_TOKEN=...
+python scripts/github_client.py --config client-config.yaml --live --output outputs/weekly-digest.md
+```
+
+Use a read-only token with access to repository metadata, issues, pull requests, and releases. Do not put tokens in config files or command history.
